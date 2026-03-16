@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
+const API_BASE_URL =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1"
+    ? "http://127.0.0.1:5001"
+    : "https://quiz-api-bfq5.onrender.com";
+
 function shuffleArray(array) {
   const shuffled = [...array];
 
@@ -25,7 +31,7 @@ function App() {
   useEffect(() => {
     async function fetchQuestions() {
       try {
-        const response = await axios.get("http://127.0.0.1:5001/api/questions");
+        const response = await axios.get(`${API_BASE_URL}/api/questions`);
         const fetchedQuestions = response.data;
         setQuestions(fetchedQuestions);
 
@@ -289,7 +295,8 @@ const styles = {
     padding: "16px",
     fontSize: "18px",
     cursor: "pointer",
-    lineHeight: 1.5
+    lineHeight: 1.5,
+    color: "#222"
   },
   correctOption: {
     backgroundColor: "#dff4df",
@@ -333,10 +340,14 @@ const styles = {
   jumpInput: {
     padding: "12px",
     borderRadius: "10px",
-    border: "1px solid #ccc",
+    border: "1px solid #d6dbe6",
     fontSize: "16px",
-    width: "160px"
-  }
+    width: "180px",
+    backgroundColor: "#ffffff",
+    color: "#333",
+    outline: "none",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.05)"
+}
 };
 
 export default App;
