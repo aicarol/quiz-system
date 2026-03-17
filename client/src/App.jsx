@@ -27,6 +27,7 @@ function App() {
   const [error, setError] = useState("");
   const [jumpNumber, setJumpNumber] = useState("");
   const [shuffledOptionsMap, setShuffledOptionsMap] = useState({});
+  const [remainingRandomIndexes, setRemainingRandomIndexes] = useState([]);
 
   useEffect(() => {
     async function fetchQuestions() {
@@ -46,6 +47,11 @@ function App() {
             setCurrentIndex(savedIndex);
           }
         }
+
+        // initialize random questions memory 
+        setRemainingRandomIndexes(
+          fetchedQuestions.map((_, index) => index)
+        );
       } catch (err) {
         console.error(err);
         setError("Failed to load questions.");
@@ -117,14 +123,32 @@ function App() {
   function goToRandomQuestion() {
     if (!questions.length) return;
 
-    let randomIndex = currentIndex;
+    setRemainingRandomIndexes((prev) => {
+      let pool = [...prev];
 
-    while (questions.length > 1 && randomIndex === currentIndex) {
-      randomIndex = Math.floor(Math.random() * questions.length);
-    }
+      // reset when it's all done
+      if (pool.length === 0) {
+        pool = questions.map((_, index) => index).filter((index) => index !== currentIndex);
+      }
 
-    setCurrentIndex(randomIndex);
-    resetQuestionState();
+      // if in the current, remove first
+      pool = pool.filter((index) => index !== currentIndex);
+
+      // if empty after remove, then it means this round has done, reset it
+      if (pool.length === 0) {
+        pool = questions.map((_, index) => index).filter((index) => index !== currentIndex);
+      }
+
+      const randomPosition = Math.floor(Math.random() * pool.length);
+      const nextIndex = pool[randomPosition];
+
+      const updatedPool = pool.filter((_, index) => index !== randomPosition);
+
+      setCurrentIndex(nextIndex);
+      resetQuestionState();
+
+      return updatedPool;
+    });
   }
 
   function jumpToQuestion() {
@@ -248,6 +272,10 @@ function App() {
             Go
           </button>
         </div>
+
+        <div style={styles.randomInfo}>
+          Random pool remaining: {remainingRandomIndexes.length}
+        </div>
       </div>
     </div>
   );
@@ -300,11 +328,13 @@ const styles = {
   },
   correctOption: {
     backgroundColor: "#dff4df",
-    border: "1px solid #8bc48b"
+    border: "1px solid #8bc48b",
+    color: "#1f3d1f"
   },
   wrongOption: {
     backgroundColor: "#fde2e2",
-    border: "1px solid #e49797"
+    border: "1px solid #e49797",
+    color: "#7a1f1f"
   },
   explanationBox: {
     marginTop: "24px",
@@ -347,7 +377,12 @@ const styles = {
     color: "#333",
     outline: "none",
     boxShadow: "0 2px 6px rgba(0,0,0,0.05)"
-}
+  },
+  randomInfo: {
+    marginTop: "16px",
+    color: "#666",
+    fontSize: "14px"
+  }
 };
 
 export default App;
