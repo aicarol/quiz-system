@@ -7,6 +7,12 @@ const API_BASE_URL =
     ? "http://127.0.0.1:5001"
     : "https://quiz-api-bfq5.onrender.com";
 
+const STORAGE_KEYS = {
+  lastQuestionNumber: "lastQuestionNumber",
+  remainingRandomPool: "remainingRandomPool",
+  randomCycleStats: "randomCycleStats"
+};
+
 function shuffleArray(array) {
   const shuffled = [...array];
 
@@ -27,7 +33,22 @@ function App() {
   const [error, setError] = useState("");
   const [jumpNumber, setJumpNumber] = useState("");
   const [shuffledOptionsMap, setShuffledOptionsMap] = useState({});
-  const [remainingRandomIndexes, setRemainingRandomIndexes] = useState([]);
+  const [remainingRandomQuestionNumbers, setRemainingRandomQuestionNumbers] =
+    useState([]);
+  const [hasAnsweredCurrentQuestion, setHasAnsweredCurrentQuestion] =
+    useState(false);
+  const [isCurrentQuestionFromRandom, setIsCurrentQuestionFromRandom] =
+    useState(false);
+
+  const [sessionStats, setSessionStats] = useState({
+    total: 0,
+    correct: 0
+  });
+
+  const [randomCycleStats, setRandomCycleStats] = useState({
+    total: 0,
+    correct: 0
+  });
 
   useEffect(() => {
     async function fetchQuestions() {
@@ -36,7 +57,9 @@ function App() {
         const fetchedQuestions = response.data;
         setQuestions(fetchedQuestions);
 
-        const savedQuestionNumber = localStorage.getItem("lastQuestionNumber");
+        const savedQuestionNumber = localStorage.getItem(
+          STORAGE_KEYS.lastQuestionNumber
+        );
 
         if (savedQuestionNumber) {
           const savedIndex = fetchedQuestions.findIndex(
@@ -48,10 +71,63 @@ function App() {
           }
         }
 
-        // initialize random questions memory 
-        setRemainingRandomIndexes(
-          fetchedQuestions.map((_, index) => index)
+        const savedRandomPoolRaw = localStorage.getItem(
+          STORAGE_KEYS.remainingRandomPool
         );
+
+        if (savedRandomPoolRaw) {
+          try {
+            const parsedPool = JSON.parse(savedRandomPoolRaw);
+
+            if (Array.isArray(parsedPool)) {
+              const validQuestionNumbers = new Set(
+                fetchedQuestions.map((q) => q.questionNumber)
+              );
+
+              const filteredPool = parsedPool.filter((questionNumber) =>
+                validQuestionNumbers.has(questionNumber)
+              );
+
+              setRemainingRandomQuestionNumbers(filteredPool);
+            } else {
+              setRemainingRandomQuestionNumbers(
+                fetchedQuestions.map((q) => q.questionNumber)
+              );
+            }
+          } catch {
+            setRemainingRandomQuestionNumbers(
+              fetchedQuestions.map((q) => q.questionNumber)
+            );
+          }
+        } else {
+          setRemainingRandomQuestionNumbers(
+            fetchedQuestions.map((q) => q.questionNumber)
+          );
+        }
+
+        const savedRandomCycleStatsRaw = localStorage.getItem(
+          STORAGE_KEYS.randomCycleStats
+        );
+
+        if (savedRandomCycleStatsRaw) {
+          try {
+            const parsedStats = JSON.parse(savedRandomCycleStatsRaw);
+
+            if (
+              parsedStats &&
+              typeof parsedStats.total === "number" &&
+              typeof parsedStats.correct === "number"
+            ) {
+              setRandomCycleStats(parsedStats);
+            } else {
+              setRandomCycleStats({ total: 0, correct: 0 });
+            }
+          } catch {
+            setRandomCycleStats({ total: 0, correct: 0 });
+          }
+        } else {
+          setRandomCycleStats({ total: 0, correct: 0 });
+        }
       } catch (err) {
         console.error(err);
         setError("Failed to load questions.");
@@ -70,7 +146,7 @@ function App() {
     if (!currentQuestion) return;
 
     localStorage.setItem(
-      "lastQuestionNumber",
+      STORAGE_KEYS.lastQuestionNumber,
       currentQuestion.questionNumber.toString()
     );
 
@@ -85,6 +161,24 @@ function App() {
       };
     });
   }, [questions, currentIndex]);
+
+  useEffect(() => {
+    if (!loading) {
+      localStorage.setItem(
+        STORAGE_KEYS.remainingRandomPool,
+        JSON.stringify(remainingRandomQuestionNumbers)
+      );
+    }
+  }, [remainingRandomQuestionNumbers, loading]);
+
+  useEffect(() => {
+    if (!loading) {
+      localStorage.setItem(
+        STORAGE_KEYS.randomCycleStats,
+        JSON.stringify(randomCycleStats)
+      );
+    }
+  }, [randomCycleStats, loading]);
 
   const currentQuestion = useMemo(() => {
     if (!questions.length) return null;
@@ -101,11 +195,45 @@ function App() {
   function handleSelectOption(key) {
     setSelectedKey(key);
     setShowExplanation(true);
+
+    if (hasAnsweredCurrentQuestion || !currentQuestion) return;
+
+    const selectedOption = currentQuestion.options.find(
+      (option) => option.key === key
+    );
+
+    const isCorrect = !!selectedOption?.isCorrect;
+    const currentQuestionNumber = currentQuestion.questionNumber;
+
+    setSessionStats((prev) => ({
+      total: prev.total + 1,
+      correct: prev.correct + (isCorrect ? 1 : 0)
+    }));
+
+    const isStillInRandomPool =
+      remainingRandomQuestionNumbers.includes(currentQuestionNumber);
+
+    if (isCurrentQuestionFromRandom || isStillInRandomPool) {
+      setRandomCycleStats((prev) => ({
+        total: prev.total + 1,
+        correct: prev.correct + (isCorrect ? 1 : 0)
+      }));
+    }
+
+    if (isStillInRandomPool) {
+      setRemainingRandomQuestionNumbers((prev) =>
+        prev.filter((questionNumber) => questionNumber !== currentQuestionNumber)
+      );
+    }
+
+    setHasAnsweredCurrentQuestion(true);
   }
 
   function resetQuestionState() {
     setSelectedKey("");
     setShowExplanation(false);
+    setHasAnsweredCurrentQuestion(false);
+    setIsCurrentQuestionFromRandom(false);
   }
 
   function goToNextQuestion() {
@@ -123,32 +251,43 @@ function App() {
   function goToRandomQuestion() {
     if (!questions.length) return;
 
-    setRemainingRandomIndexes((prev) => {
-      let pool = [...prev];
+    const currentQuestionNumber = questions[currentIndex]?.questionNumber;
 
-      // reset when it's all done
-      if (pool.length === 0) {
-        pool = questions.map((_, index) => index).filter((index) => index !== currentIndex);
-      }
+    if (remainingRandomQuestionNumbers.length === 0) {
+      alert("You have completed this random cycle. Please click 'Reset Random Pool' to start a new cycle.");
+      return;
+    }
 
-      // if in the current, remove first
-      pool = pool.filter((index) => index !== currentIndex);
+    let pool = [...remainingRandomQuestionNumbers];
 
-      // if empty after remove, then it means this round has done, reset it
-      if (pool.length === 0) {
-        pool = questions.map((_, index) => index).filter((index) => index !== currentIndex);
-      }
+    let candidatePool = pool.filter(
+      (questionNumber) => questionNumber !== currentQuestionNumber
+    );
 
-      const randomPosition = Math.floor(Math.random() * pool.length);
-      const nextIndex = pool[randomPosition];
+    if (candidatePool.length === 0) {
+      candidatePool = [...pool];
+    }
 
-      const updatedPool = pool.filter((_, index) => index !== randomPosition);
+    const randomPosition = Math.floor(Math.random() * candidatePool.length);
+    const nextQuestionNumber = candidatePool[randomPosition];
 
+    const nextIndex = questions.findIndex(
+      (q) => q.questionNumber === nextQuestionNumber
+    );
+
+    if (nextIndex !== -1) {
       setCurrentIndex(nextIndex);
-      resetQuestionState();
+      setSelectedKey("");
+      setShowExplanation(false);
+      setHasAnsweredCurrentQuestion(false);
+      setIsCurrentQuestionFromRandom(true);
+    }
 
-      return updatedPool;
-    });
+    const updatedPool = pool.filter(
+      (questionNumber) => questionNumber !== nextQuestionNumber
+    );
+
+    setRemainingRandomQuestionNumbers(updatedPool);
   }
 
   function jumpToQuestion() {
@@ -169,6 +308,12 @@ function App() {
     setCurrentIndex(index);
     resetQuestionState();
     setJumpNumber("");
+  }
+
+  function resetRandomPool() {
+    const fullPool = questions.map((q) => q.questionNumber);
+    setRemainingRandomQuestionNumbers(fullPool);
+    setRandomCycleStats({ total: 0, correct: 0 });
   }
 
   function getOptionStyle(option) {
@@ -193,6 +338,11 @@ function App() {
     return styles.option;
   }
 
+  function getAccuracy(stats) {
+    if (stats.total === 0) return "0%";
+    return `${((stats.correct / stats.total) * 100).toFixed(1)}%`;
+  }
+
   if (loading) {
     return <div style={styles.page}>Loading questions...</div>;
   }
@@ -213,6 +363,24 @@ function App() {
           <span>
             {currentIndex + 1} / {questions.length}
           </span>
+        </div>
+
+        <div style={styles.statsGrid}>
+          <div style={styles.statCard}>
+            <div style={styles.statTitle}>Random Cycle Accuracy</div>
+            <div style={styles.statValue}>{getAccuracy(randomCycleStats)}</div>
+            <div style={styles.statSubtext}>
+              Correct: {randomCycleStats.correct} / {randomCycleStats.total}
+            </div>
+          </div>
+
+          <div style={styles.statCard}>
+            <div style={styles.statTitle}>This Session Accuracy</div>
+            <div style={styles.statValue}>{getAccuracy(sessionStats)}</div>
+            <div style={styles.statSubtext}>
+              Correct: {sessionStats.correct} / {sessionStats.total}
+            </div>
+          </div>
         </div>
 
         <h2 style={styles.question}>{currentQuestion.question}</h2>
@@ -273,8 +441,14 @@ function App() {
           </button>
         </div>
 
-        <div style={styles.randomInfo}>
-          Random pool remaining: {remainingRandomIndexes.length}
+        <div style={styles.randomInfoRow}>
+          <div style={styles.randomInfo}>
+            Random pool remaining: {remainingRandomQuestionNumbers.length}
+          </div>
+
+          <button style={styles.resetPoolButton} onClick={resetRandomPool}>
+            Reset Random Pool
+          </button>
         </div>
       </div>
     </div>
@@ -303,6 +477,33 @@ const styles = {
     marginBottom: "16px",
     color: "#555",
     fontSize: "14px"
+  },
+  statsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: "12px",
+    marginBottom: "24px"
+  },
+  statCard: {
+    backgroundColor: "#f8fafc",
+    border: "1px solid #dbe4f0",
+    borderRadius: "12px",
+    padding: "16px"
+  },
+  statTitle: {
+    fontSize: "14px",
+    color: "#666",
+    marginBottom: "8px"
+  },
+  statValue: {
+    fontSize: "24px",
+    fontWeight: "700",
+    color: "#222"
+  },
+  statSubtext: {
+    marginTop: "6px",
+    fontSize: "14px",
+    color: "#666"
   },
   question: {
     fontSize: "28px",
@@ -378,10 +579,26 @@ const styles = {
     outline: "none",
     boxShadow: "0 2px 6px rgba(0,0,0,0.05)"
   },
-  randomInfo: {
+  randomInfoRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "12px",
     marginTop: "16px",
+    flexWrap: "wrap"
+  },
+  randomInfo: {
     color: "#666",
     fontSize: "14px"
+  },
+  resetPoolButton: {
+    padding: "10px 14px",
+    borderRadius: "10px",
+    border: "1px solid #d6dbe6",
+    backgroundColor: "#ffffff",
+    color: "#333",
+    fontSize: "14px",
+    cursor: "pointer"
   }
 };
 
