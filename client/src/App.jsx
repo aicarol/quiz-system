@@ -1,3 +1,4 @@
+import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
@@ -10,7 +11,8 @@ const API_BASE_URL =
 const STORAGE_KEYS = {
   lastQuestionNumber: "lastQuestionNumber",
   remainingRandomPool: "remainingRandomPool",
-  randomCycleStats: "randomCycleStats"
+  randomCycleStats: "randomCycleStats",
+  wrongQuestionNumbers: "wrongQuestionNumbers"
 };
 
 function shuffleArray(array) {
@@ -22,6 +24,11 @@ function shuffleArray(array) {
   }
 
   return shuffled;
+}
+
+function getAccuracy(stats) {
+  if (!stats || stats.total === 0) return "0%";
+  return `${((stats.correct / stats.total) * 100).toFixed(1)}%`;
 }
 
 function App() {
@@ -49,6 +56,8 @@ function App() {
     total: 0,
     correct: 0
   });
+
+  const [wrongQuestionNumbers, setWrongQuestionNumbers] = useState([]);
 
   useEffect(() => {
     async function fetchQuestions() {
@@ -128,6 +137,34 @@ function App() {
         } else {
           setRandomCycleStats({ total: 0, correct: 0 });
         }
+
+        const savedWrongQuestionNumbersRaw = localStorage.getItem(
+          STORAGE_KEYS.wrongQuestionNumbers
+        );
+
+        if (savedWrongQuestionNumbersRaw) {
+          try {
+            const parsedWrongList = JSON.parse(savedWrongQuestionNumbersRaw);
+
+            if (Array.isArray(parsedWrongList)) {
+              const validQuestionNumbers = new Set(
+                fetchedQuestions.map((q) => q.questionNumber)
+              );
+
+              const filteredWrongList = parsedWrongList.filter((questionNumber) =>
+                validQuestionNumbers.has(questionNumber)
+              );
+
+              setWrongQuestionNumbers(filteredWrongList);
+            } else {
+              setWrongQuestionNumbers([]);
+            }
+          } catch {
+            setWrongQuestionNumbers([]);
+          }
+        } else {
+          setWrongQuestionNumbers([]);
+        }
       } catch (err) {
         console.error(err);
         setError("Failed to load questions.");
@@ -180,6 +217,15 @@ function App() {
     }
   }, [randomCycleStats, loading]);
 
+  useEffect(() => {
+    if (!loading) {
+      localStorage.setItem(
+        STORAGE_KEYS.wrongQuestionNumbers,
+        JSON.stringify(wrongQuestionNumbers)
+      );
+    }
+  }, [wrongQuestionNumbers, loading]);
+
   const currentQuestion = useMemo(() => {
     if (!questions.length) return null;
 
@@ -191,6 +237,11 @@ function App() {
       options: shuffledOptions
     };
   }, [questions, currentIndex, shuffledOptionsMap]);
+
+  const wrongQuestions = useMemo(() => {
+    const wrongSet = new Set(wrongQuestionNumbers);
+    return questions.filter((q) => wrongSet.has(q.questionNumber));
+  }, [questions, wrongQuestionNumbers]);
 
   function handleSelectOption(key) {
     setSelectedKey(key);
@@ -226,6 +277,13 @@ function App() {
       );
     }
 
+    if (!isCorrect) {
+      setWrongQuestionNumbers((prev) => {
+        if (prev.includes(currentQuestionNumber)) return prev;
+        return [...prev, currentQuestionNumber];
+      });
+    }
+
     setHasAnsweredCurrentQuestion(true);
   }
 
@@ -254,7 +312,9 @@ function App() {
     const currentQuestionNumber = questions[currentIndex]?.questionNumber;
 
     if (remainingRandomQuestionNumbers.length === 0) {
-      alert("You have completed this random cycle. Please click 'Reset Random Pool' to start a new cycle.");
+      alert(
+        "You have completed this random cycle. Please click 'Reset Random Pool' to start a new cycle."
+      );
       return;
     }
 
@@ -338,9 +398,14 @@ function App() {
     return styles.option;
   }
 
-  function getAccuracy(stats) {
-    if (stats.total === 0) return "0%";
-    return `${((stats.correct / stats.total) * 100).toFixed(1)}%`;
+  function removeWrongQuestion(questionNumber) {
+    setWrongQuestionNumbers((prev) =>
+      prev.filter((number) => number !== questionNumber)
+    );
+  }
+
+  function clearWrongBook() {
+    setWrongQuestionNumbers([]);
   }
 
   if (loading) {
@@ -351,6 +416,69 @@ function App() {
     return <div style={styles.page}>{error}</div>;
   }
 
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <QuizPage
+              currentQuestion={currentQuestion}
+              currentIndex={currentIndex}
+              totalQuestions={questions.length}
+              selectedKey={selectedKey}
+              showExplanation={showExplanation}
+              handleSelectOption={handleSelectOption}
+              getOptionStyle={getOptionStyle}
+              goToPrevQuestion={goToPrevQuestion}
+              goToRandomQuestion={goToRandomQuestion}
+              goToNextQuestion={goToNextQuestion}
+              jumpNumber={jumpNumber}
+              setJumpNumber={setJumpNumber}
+              jumpToQuestion={jumpToQuestion}
+              remainingRandomCount={remainingRandomQuestionNumbers.length}
+              resetRandomPool={resetRandomPool}
+              randomCycleStats={randomCycleStats}
+              sessionStats={sessionStats}
+              wrongCount={wrongQuestionNumbers.length}
+            />
+          }
+        />
+        <Route
+          path="/wrong-book"
+          element={
+            <WrongBookPage
+              wrongQuestions={wrongQuestions}
+              removeWrongQuestion={removeWrongQuestion}
+              clearWrongBook={clearWrongBook}
+            />
+          }
+        />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+function QuizPage({
+  currentQuestion,
+  currentIndex,
+  totalQuestions,
+  selectedKey,
+  showExplanation,
+  handleSelectOption,
+  getOptionStyle,
+  goToPrevQuestion,
+  goToRandomQuestion,
+  goToNextQuestion,
+  jumpNumber,
+  setJumpNumber,
+  jumpToQuestion,
+  remainingRandomCount,
+  resetRandomPool,
+  randomCycleStats,
+  sessionStats,
+  wrongCount
+}) {
   if (!currentQuestion) {
     return <div style={styles.page}>No questions found.</div>;
   }
@@ -358,11 +486,17 @@ function App() {
   return (
     <div style={styles.page}>
       <div style={styles.card}>
-        <div style={styles.topRow}>
-          <span>Question {currentQuestion.questionNumber}</span>
-          <span>
-            {currentIndex + 1} / {questions.length}
-          </span>
+        <div style={styles.topBar}>
+          <div style={styles.topRow}>
+            <span>Question {currentQuestion.questionNumber}</span>
+            <span>
+              {currentIndex + 1} / {totalQuestions}
+            </span>
+          </div>
+
+          <Link to="/wrong-book" style={styles.linkButton}>
+            Wrong Book ({wrongCount})
+          </Link>
         </div>
 
         <div style={styles.statsGrid}>
@@ -443,11 +577,213 @@ function App() {
 
         <div style={styles.randomInfoRow}>
           <div style={styles.randomInfo}>
-            Random pool remaining: {remainingRandomQuestionNumbers.length}
+            Random pool remaining: {remainingRandomCount}
           </div>
 
           <button style={styles.resetPoolButton} onClick={resetRandomPool}>
             Reset Random Pool
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WrongBookPage({ wrongQuestions, removeWrongQuestion, clearWrongBook }) {
+  const [wrongIndex, setWrongIndex] = useState(0);
+  const [selectedKey, setSelectedKey] = useState("");
+  const [showExplanation, setShowExplanation] = useState(false);
+  const [shuffledOptionsMap, setShuffledOptionsMap] = useState({});
+
+  useEffect(() => {
+    if (wrongQuestions.length === 0) return;
+
+    if (wrongIndex >= wrongQuestions.length) {
+      setWrongIndex(0);
+      return;
+    }
+
+    const currentWrongQuestion = wrongQuestions[wrongIndex];
+    if (!currentWrongQuestion) return;
+
+    setShuffledOptionsMap((prev) => {
+      if (prev[currentWrongQuestion.questionNumber]) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [currentWrongQuestion.questionNumber]: shuffleArray(
+          currentWrongQuestion.options
+        )
+      };
+    });
+  }, [wrongQuestions, wrongIndex]);
+
+  const currentWrongQuestion = useMemo(() => {
+    if (!wrongQuestions.length) return null;
+
+    const q = wrongQuestions[wrongIndex];
+    const shuffledOptions = shuffledOptionsMap[q.questionNumber] || q.options;
+
+    return {
+      ...q,
+      options: shuffledOptions
+    };
+  }, [wrongQuestions, wrongIndex, shuffledOptionsMap]);
+
+  function resetWrongState() {
+    setSelectedKey("");
+    setShowExplanation(false);
+  }
+
+  function handleWrongSelectOption(key) {
+    setSelectedKey(key);
+    setShowExplanation(true);
+  }
+
+  function goToNextWrongQuestion() {
+    if (!wrongQuestions.length) return;
+    setWrongIndex((prev) => (prev + 1) % wrongQuestions.length);
+    resetWrongState();
+  }
+
+  function goToPrevWrongQuestion() {
+    if (!wrongQuestions.length) return;
+    setWrongIndex(
+      (prev) => (prev - 1 + wrongQuestions.length) % wrongQuestions.length
+    );
+    resetWrongState();
+  }
+
+  function goToRandomWrongQuestion() {
+    if (!wrongQuestions.length) return;
+
+    let randomIndex = wrongIndex;
+
+    while (wrongQuestions.length > 1 && randomIndex === wrongIndex) {
+      randomIndex = Math.floor(Math.random() * wrongQuestions.length);
+    }
+
+    setWrongIndex(randomIndex);
+    resetWrongState();
+  }
+
+  function getWrongOptionStyle(option) {
+    if (!showExplanation) {
+      return styles.option;
+    }
+
+    if (option.isCorrect) {
+      return {
+        ...styles.option,
+        ...styles.correctOption
+      };
+    }
+
+    if (selectedKey === option.key && !option.isCorrect) {
+      return {
+        ...styles.option,
+        ...styles.wrongOption
+      };
+    }
+
+    return styles.option;
+  }
+
+  if (!wrongQuestions.length) {
+    return (
+      <div style={styles.page}>
+        <div style={styles.card}>
+          <div style={styles.topBar}>
+            <div style={styles.topRow}>
+              <span>Wrong Book</span>
+              <span>0 questions</span>
+            </div>
+
+            <Link to="/" style={styles.linkButton}>
+              Back to Quiz
+            </Link>
+          </div>
+
+          <div style={styles.emptyState}>
+            No wrong questions yet.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={styles.page}>
+      <div style={styles.card}>
+        <div style={styles.topBar}>
+          <div style={styles.topRow}>
+            <span>Wrong Book - Question {currentWrongQuestion.questionNumber}</span>
+            <span>
+              {wrongIndex + 1} / {wrongQuestions.length}
+            </span>
+          </div>
+
+          <div style={styles.topActions}>
+            <Link to="/" style={styles.linkButton}>
+              Back to Quiz
+            </Link>
+
+            <button
+              style={styles.secondaryButton}
+              onClick={() => removeWrongQuestion(currentWrongQuestion.questionNumber)}
+            >
+              Remove This Question
+            </button>
+
+            <button style={styles.secondaryButton} onClick={clearWrongBook}>
+              Clear Wrong Book
+            </button>
+          </div>
+        </div>
+
+        <h2 style={styles.question}>{currentWrongQuestion.question}</h2>
+
+        <div style={styles.optionsContainer}>
+          {currentWrongQuestion.options.map((option, index) => {
+            const displayKey = String.fromCharCode(65 + index);
+
+            return (
+              <button
+                key={`${currentWrongQuestion.questionNumber}-${option.key}`}
+                style={getWrongOptionStyle(option)}
+                onClick={() => handleWrongSelectOption(option.key)}
+                disabled={showExplanation}
+              >
+                <strong>{displayKey}.</strong> {option.text}
+              </button>
+            );
+          })}
+        </div>
+
+        {showExplanation && (
+          <div style={styles.explanationBox}>
+            <p>
+              <strong>Correct Answer:</strong> {currentWrongQuestion.answer}
+            </p>
+            <p>
+              <strong>Explanation:</strong> {currentWrongQuestion.explanation}
+            </p>
+          </div>
+        )}
+
+        <div style={styles.buttonRow}>
+          <button style={styles.navButton} onClick={goToPrevWrongQuestion}>
+            Previous
+          </button>
+
+          <button style={styles.navButton} onClick={goToRandomWrongQuestion}>
+            Random
+          </button>
+
+          <button style={styles.navButton} onClick={goToNextWrongQuestion}>
+            Next
           </button>
         </div>
       </div>
@@ -464,19 +800,51 @@ const styles = {
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif'
   },
   card: {
-    maxWidth: "900px",
+    maxWidth: "980px",
     margin: "0 auto",
     backgroundColor: "#ffffff",
     borderRadius: "16px",
     padding: "24px",
     boxShadow: "0 8px 24px rgba(0,0,0,0.08)"
   },
+  topBar: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "16px",
+    flexWrap: "wrap",
+    marginBottom: "16px"
+  },
   topRow: {
     display: "flex",
     justifyContent: "space-between",
-    marginBottom: "16px",
+    gap: "16px",
     color: "#555",
+    fontSize: "14px",
+    flex: 1,
+    minWidth: "260px"
+  },
+  topActions: {
+    display: "flex",
+    gap: "10px",
+    flexWrap: "wrap"
+  },
+  linkButton: {
+    padding: "10px 16px",
+    borderRadius: "10px",
+    backgroundColor: "#111827",
+    color: "#fff",
+    textDecoration: "none",
     fontSize: "14px"
+  },
+  secondaryButton: {
+    padding: "10px 14px",
+    borderRadius: "10px",
+    border: "1px solid #d6dbe6",
+    backgroundColor: "#ffffff",
+    color: "#333",
+    fontSize: "14px",
+    cursor: "pointer"
   },
   statsGrid: {
     display: "grid",
@@ -599,6 +967,12 @@ const styles = {
     color: "#333",
     fontSize: "14px",
     cursor: "pointer"
+  },
+  emptyState: {
+    padding: "40px 20px",
+    textAlign: "center",
+    fontSize: "20px",
+    color: "#666"
   }
 };
 

@@ -30,7 +30,7 @@ function cleanText(text) {
   return text
     .replace(/\[Control\]/gi, "")
     .replace(/\s+/g, " ")
-    .replace(/^\s*[○●o]\s*/u, "")
+    .replace(/^\s*[○●•◦▪▫o]\s*/u, "")
     .trim();
 }
 
@@ -194,28 +194,37 @@ function parseQuestions(paragraphs) {
       const optionCandidate = isLikelyOptionParagraph(text);
       const { hasGreen, hasRed, hasBoldNonRed } = analyzeRuns(p.runs);
 
-      const looksLikeOption =
-        optionCandidate &&
-        (hasGreen || hasRed || hasBoldNonRed || current.options.length > 0);
+      const looksLikeOption = optionCandidate &&
+           (
+           hasGreen ||
+           hasRed ||
+           hasBoldNonRed ||
+            current.options.length > 0 ||
+            (
+                current.question &&
+                current.options.length < 4 &&
+                text.length < 220
+            )
+            );
 
       if (looksLikeOption && current.options.length < 4) {
-        const optionKey = String.fromCharCode(65 + current.options.length);
+          const optionKey = String.fromCharCode(65 + current.options.length);
 
-        current.options.push({
-          key: optionKey,
-          text,
-          isCorrect: hasGreen,
-          isTrap: hasRed,
-          _hasBoldNonRed: hasBoldNonRed
-        });
+          current.options.push({
+            key: optionKey,
+            text,
+            isCorrect: hasGreen,
+            isTrap: hasRed,
+            _hasBoldNonRed: hasBoldNonRed
+          });
 
-        if (hasGreen) {
-          current.sourceType = "green-correct";
-        } else if (hasRed && !current.sourceType) {
-          current.sourceType = "red-incorrect";
-        }
+          if (hasGreen) {
+            current.sourceType = "green-correct";
+            } else if (hasRed && !current.sourceType) {
+            current.sourceType = "red-incorrect";
+          }
 
-        continue;
+          continue;
       }
 
       current.question += (current.question ? " " : "") + text;
@@ -234,6 +243,77 @@ function parseQuestions(paragraphs) {
   return questions;
 }
 
+function applyManualFixes(questions) {
+  return questions.map((q) => {
+    if (q.questionNumber === 412) {
+      return {
+        ...q,
+        question:
+          "Wyatt, P.Eng., is employed by Green and Green Inc., a company that specializes in corporate construction projects in Surrey, B.C. Last month, Wyatt received an email from head office that explained the company would be implementing the use of a new design software system for all future projects, effective immediately. The email also included the software manual that Wyatt was required to read and review by the end of the week. Upon further research, Wyatt learns that this software program had been developed in Los Angeles, and therefore, the final product had never been authenticated by a professional member belonging to British Columbia’s provincial engineering association. According to most association’s guidelines, is Wyatt able to authenticate any designs that contain results obtained by this software program, and why or why not?",
+        options: [
+          {
+            key: "A",
+            text: "No, Wyatt cannot authenticate designs based on results from this software, unless he is able to generate identical results on a software program that had been designed and/or authenticated by a professional member in his provincial association.",
+            isCorrect: false,
+            isTrap: false
+          },
+          {
+            key: "B",
+            text: "No, Wyatt cannot authenticate any designs obtained from this software program, because the software program itself was not designed and/or authenticated by a professional member in his provincial association.",
+            isCorrect: false,
+            isTrap: false
+          },
+          {
+            key: "C",
+            text: "Yes, Wyatt can authenticate designs based on results from this software, as long as he carefully reviews the results and is willing to take full responsibility for them, in the same way, a professional would review any work prepared by another individual before authenticating it.",
+            isCorrect: true,
+            isTrap: false
+          },
+          {
+            key: "D",
+            text: "Yes, Wyatt can authenticate any designs obtained by this software program, because his employer instructed him to utilize the software program. Therefore, the employer would be responsible for both initially reviewing the program and for all results obtained from the program, thereafter.",
+            isCorrect: false,
+            isTrap: false
+          }
+        ],
+        answer: "C"
+      };
+    }
+
+    if (q.questionNumber === 274) {
+      return {
+        ...q,
+        question:
+          "Ethan, P.Eng., explains Continuing Professional Development (CPD) to his niece Ashley, an M.I.T. (Member in Training). He is very passionate about the subject and decides to delve into recommendations set forth by Engineers Canada regarding CPD. Ethan states the following three facts, 1) “Each association should require CPD reporting bi-annually.” 2) “Preferably, over-the-phone CPD reporting should be made available to members.” 3) “There should be consequences for non-compliance.” Which statement(s), is/are correct?",
+        options: [
+          { key: "A", text: "1 & 2", isCorrect: false, isTrap: true },
+          { key: "B", text: "1", isCorrect: false, isTrap: false },
+          { key: "C", text: "3", isCorrect: true, isTrap: false },
+          { key: "D", text: "2 & 3", isCorrect: false, isTrap: false }
+        ],
+        answer: "C"
+      };
+    }
+
+    if (q.questionNumber === 45) {
+      return {
+        ...q,
+        question:
+          "If you are at work and you believe that the working conditions are dangerous to your health and safety, the Occupational Health and Safety Act states that you have the right to:",
+        options: [
+          { key: "A", text: "Report your boss", isCorrect: false, isTrap: true },
+          { key: "B", text: "Correct the situation yourself", isCorrect: false, isTrap: false },
+          { key: "C", text: "Demand higher compensation", isCorrect: false, isTrap: false },
+          { key: "D", text: "Refuse work", isCorrect: true, isTrap: false }
+        ],
+        answer: "D"
+      };
+    }
+
+    return q;
+  });
+}
+
 async function main() {
   try {
     await mongoose.connect(process.env.MONGODB_URI);
@@ -244,10 +324,12 @@ async function main() {
 
     const paragraphs = await readDocx(filePath);
 
-    const questions = parseQuestions(paragraphs).map((q) => ({
-      ...q,
-      sourceFile: inputFile
+    let questions = parseQuestions(paragraphs).map((q) => ({
+        ...q,
+        sourceFile: inputFile
     }));
+
+    questions = applyManualFixes(questions);
 
     console.log(`Parsed ${questions.length} questions from ${inputFile}`);
 
