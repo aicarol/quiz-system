@@ -21,7 +21,9 @@ export default function QuizPage({
   randomCycleStats,
   sessionStats,
   wrongCount,
-  handleLogout
+  handleLogout,
+  isFavorite,
+  toggleFavoriteQuestion
 }) {
   if (!currentQuestion) {
     return <div style={styles.page}>No questions found.</div>;
@@ -41,6 +43,10 @@ export default function QuizPage({
             <div style={{ display: "flex", gap: "10px" }}>
                 <Link to="/wrong-book" style={styles.linkButton}>
                 Wrong Book ({wrongCount})
+                </Link>
+
+                <Link to="/favorites" style={styles.linkButton}>
+                Favorites
                 </Link>
 
                 <button style={styles.secondaryButton} onClick={handleLogout}>
@@ -65,6 +71,18 @@ export default function QuizPage({
               Correct: {sessionStats.correct} / {sessionStats.total}
             </div>
           </div>
+        </div>
+
+        <div style={{ display: "flex", gap: "10px", marginBottom: "16px" }}>
+          <button
+            style={{
+                ...styles.secondaryButton,
+                fontWeight: "600"
+            }}
+            onClick={() => toggleFavoriteQuestion(currentQuestion.questionNumber)}
+            >
+            {isFavorite ? "★ Favorited" : "☆ Add to Favorites"}
+          </button>
         </div>
 
         <h2 style={styles.question}>{currentQuestion.question}</h2>

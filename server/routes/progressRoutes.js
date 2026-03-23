@@ -14,7 +14,8 @@ router.get("/", requireAuth, async (req, res) => {
         lastQuestionNumber: null,
         remainingRandomPool: [],
         randomCycleStats: { total: 0, correct: 0 },
-        wrongQuestionNumbers: []
+        wrongQuestionNumbers: [],
+        favoriteQuestionNumbers: []
       });
     }
 
@@ -31,7 +32,8 @@ router.put("/", requireAuth, async (req, res) => {
       lastQuestionNumber,
       remainingRandomPool,
       randomCycleStats,
-      wrongQuestionNumbers
+      wrongQuestionNumbers,
+      favoriteQuestionNumbers
     } = req.body;
 
     const progress = await UserProgress.findOneAndUpdate(
@@ -41,7 +43,8 @@ router.put("/", requireAuth, async (req, res) => {
         lastQuestionNumber,
         remainingRandomPool,
         randomCycleStats,
-        wrongQuestionNumbers
+        wrongQuestionNumbers,
+        favoriteQuestionNumbers
       },
       {
         returnDocument: "after",

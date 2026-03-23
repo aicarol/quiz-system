@@ -5,6 +5,7 @@ import QuizPage from "./pages/QuizPage";
 import WrongBookPage from "./pages/WrongBookPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import FavoritesPage from "./pages/FavoritesPage";
 import LoginRequiredPage from "./components/LoginRequiredPage";
 import { shuffleArray } from "./utils/helpers";
 import { api } from "./api/api";
@@ -43,6 +44,8 @@ function App() {
   const [progressLoaded, setProgressLoaded] = useState(false);
 
   const saveTimeoutRef = useRef(null);
+
+  const [favoriteQuestionNumbers, setFavoriteQuestionNumbers] = useState([]);
 
   useEffect(() => {
     async function fetchMe() {
@@ -126,7 +129,8 @@ function App() {
         lastQuestionNumber: currentQuestion?.questionNumber ?? null,
         remainingRandomPool: remainingRandomQuestionNumbers,
         randomCycleStats,
-        wrongQuestionNumbers
+        wrongQuestionNumbers,
+        favoriteQuestionNumbers
       });
     }, 1000); // 1秒
 
@@ -137,6 +141,7 @@ function App() {
     remainingRandomQuestionNumbers,
     randomCycleStats,
     wrongQuestionNumbers,
+    favoriteQuestionNumbers,
     progressLoaded
   ]);
 
@@ -183,6 +188,11 @@ function App() {
     return questions.filter((q) => wrongSet.has(q.questionNumber));
   }, [questions, wrongQuestionNumbers]);
 
+  const favoriteQuestions = useMemo(() => {
+    const favoriteSet = new Set(favoriteQuestionNumbers);
+    return questions.filter((q) => favoriteSet.has(q.questionNumber));
+  }, [questions, favoriteQuestionNumbers]);
+
   async function loadProgress() {
     if (!token) return;
 
@@ -223,6 +233,10 @@ function App() {
       if (Array.isArray(progress.wrongQuestionNumbers)) {
         setWrongQuestionNumbers(progress.wrongQuestionNumbers);
       }
+
+      if (Array.isArray(progress.favoriteQuestionNumbers)) {
+        setFavoriteQuestionNumbers(progress.favoriteQuestionNumbers);
+      }
     } catch (err) {
       console.error("Failed to load progress:", err);
     } finally {
@@ -234,7 +248,8 @@ function App() {
     lastQuestionNumber,
     remainingRandomPool,
     randomCycleStats,
-    wrongQuestionNumbers
+    wrongQuestionNumbers,
+    favoriteQuestionNumbers
   }) {
     if (!token) return;
 
@@ -245,7 +260,8 @@ function App() {
           lastQuestionNumber,
           remainingRandomPool,
           randomCycleStats,
-          wrongQuestionNumbers
+          wrongQuestionNumbers,
+          favoriteQuestionNumbers
         },
         {
           headers: {
@@ -390,10 +406,10 @@ function App() {
   }
 
   function handleLogout() {
-  localStorage.removeItem("token");
-  setUser(null);
-  setToken("");
-}
+    localStorage.removeItem("token");
+    setUser(null);
+    setToken("");
+  }
 
   function getOptionStyle(option) {
     if (!showExplanation) {
@@ -425,6 +441,24 @@ function App() {
 
   function clearWrongBook() {
     setWrongQuestionNumbers([]);
+  }
+
+  function toggleFavoriteQuestion(questionNumber) {
+    setFavoriteQuestionNumbers((prev) =>
+      prev.includes(questionNumber)
+        ? prev.filter((number) => number !== questionNumber)
+        : [...prev, questionNumber]
+    );
+  }
+
+  function removeFavoriteQuestion(questionNumber) {
+    setFavoriteQuestionNumbers((prev) =>
+      prev.filter((number) => number !== questionNumber)
+    );
+  }
+
+  function clearFavorites() {
+    setFavoriteQuestionNumbers([]);
   }
 
   if (authLoading) {
@@ -470,6 +504,8 @@ function App() {
                   sessionStats={sessionStats}
                   wrongCount={wrongQuestionNumbers.length}
                   handleLogout={handleLogout}
+                  isFavorite={favoriteQuestionNumbers.includes(currentQuestion?.questionNumber)}
+                  toggleFavoriteQuestion={toggleFavoriteQuestion}
                 />
               )
             ) : (
@@ -491,6 +527,27 @@ function App() {
                   wrongQuestions={wrongQuestions}
                   removeWrongQuestion={removeWrongQuestion}
                   clearWrongBook={clearWrongBook}
+                />
+              )
+            ) : (
+              <LoginRequiredPage />
+            )
+          }
+        />
+
+        <Route
+          path="/favorites"
+          element={
+            user ? (
+              loading ? (
+                <div style={styles.page}>Loading questions...</div>
+              ) : error ? (
+                <div style={styles.page}>{error}</div>
+              ) : (
+                <FavoritesPage
+                  favoriteQuestions={favoriteQuestions}
+                  removeFavoriteQuestion={removeFavoriteQuestion}
+                  clearFavorites={clearFavorites}
                 />
               )
             ) : (

@@ -29,6 +29,10 @@ const userProgressSchema = new mongoose.Schema(
     wrongQuestionNumbers: {
       type: [Number],
       default: []
+    },
+    favoriteQuestionNumbers: {
+      type: [Number],
+      default: []
     }
   },
   {
