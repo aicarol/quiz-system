@@ -310,6 +310,200 @@ function applyManualFixes(questions) {
       };
     }
 
+    if (q.questionNumber === 84) {
+      return {
+        ...q,
+        question:
+          "When your duty to your employer conflicts with your duty the public welfare, the Code of Ethics provides 3 courses of action. Which of the following is NOT one of them?",
+        options: [
+          { key: "A", text: "Correct the problem", isCorrect: false, isTrap: false },
+          { key: "B", text: "Blow the whistle", isCorrect: false, isTrap: false },
+          { key: "C", text: "Resign in protest", isCorrect: false, isTrap: false },
+          { key: "D", text: "Contact a lawyer", isCorrect: true, isTrap: false }
+        ],
+        answer: "D",
+        explanation:
+          "Correcting the problem should be the first option exercised but whistle-blowing and resigning are also acceptable. 'Contact a lawyer' is the correct answer."
+      };
+    }
+
+    if (q.questionNumber === 246) {
+      return {
+        ...q,
+        question:
+          "Most Provincial or Territorial Occupational Health and Safety Acts stipulate that every worksite must have a prime contractor if there are __ or more employers involved in work at the same time.",
+        options: [
+          { key: "A", text: "five", isCorrect: false, isTrap: false },
+          { key: "B", text: "one", isCorrect: false, isTrap: false },
+          { key: "C", text: "three", isCorrect: false, isTrap: false },
+          { key: "D", text: "two", isCorrect: true, isTrap: false }
+        ],
+        answer: "D",
+        explanation:
+          "Two is the correct answer. If there are 2 or more employers, a prime contractor must be identified so that it can take overall responsibility for the worksite."
+      };
+    }
+
+    if (q.questionNumber === 334) {
+      return {
+        ...q,
+        question:
+          "Gigi, M.I.T, is studying for her upcoming PPE exam. She has read a lot about the ISO (International Organization for Standardization), and how international and national standards are created. In order to ensure she remembers, she writes down in her notes the full process that the ISO goes through when creating new standards. She writes:\n\n“A new standard is proposed, and the ISO brings together a technical team. The new standard must pass three drafts, and at each, the technical team is able to add opinions and make necessary changes. At the final draft stage, the member countries of the ISO vote on the standard. If the standard receives ⅔ (66.67%) passing votes from the member countries, it becomes an ISO standard. The member countries must then adopt and publish the new standard as a national standard.”\n\nWhich part of Gigi’s note is INCORRECT?",
+        
+        options: [
+          {
+            key: "A",
+            text: "After the final draft it is the technical team that votes on the proposed standard, not the member countries.",
+            isCorrect: false,
+            isTrap: false
+          },
+          {
+            key: "B",
+            text: "The member countries have the option to choose whether they adopt the new ISO standard as a national standard, it is not mandatory.",
+            isCorrect: true,
+            isTrap: false
+          },
+          {
+            key: "C",
+            text: "The standard must receive a ¾ (or 75%) passing vote from the member countries, not a ⅔ (66.67%) passing vote.",
+            isCorrect: false,
+            isTrap: false
+          },
+          {
+            key: "D",
+            text: "The proposed standard only needs to pass two drafts, not three.",
+            isCorrect: false,
+            isTrap: false
+          }
+        ],
+
+        answer: "B",
+
+        explanation:
+          "The incorrect part is that member countries 'must' adopt the ISO standard. In reality, adoption is optional. Once a standard becomes official, ISO publishes it, but each member country decides whether to adopt it as a national standard."
+      };
+    }
+
+    if (q.questionNumber === 406) {
+      return {
+        ...q,
+        question:
+          "Austin, P.Geo., was assigned by his employer to a project that involved investigating underground mineral deposits for a mining company in Alberta. Upon arrival at the site, the project manager directed Austin to enter the mine through small underground tunnels. He inspected the entranceway and deemed the tunnels to be unstable. Austin immediately reported the issue to his employer and exercised his right to refuse unsafe or dangerous work under the Occupational Health and Safety Act (OHS), until the tunnels were structurally reinforced. His employer respected his decision and did the following to remedy the situation:\n\n1) Reassigned Austin to work as the firm’s secretary while the situation was being remedied.\n2) Adjusted Austin’s salary to match that of the other administrative employees while the situation was being remedied.\n3) Allowed Austin to keep the same health benefits for himself and his family that he had before the refusal.\n\nAccording to the OHS, were the employer’s actions correct? Why or why not?",
+        
+        options: [
+          {
+            key: "A",
+            text: "No, the employer acted incorrectly. If a worker refuses unsafe or dangerous work, they can be reassigned, but according to the OHS Act, they are entitled to the same salary and benefits that they received before the refusal.",
+            isCorrect: true,
+            isTrap: false
+          },
+          {
+            key: "B",
+            text: "No, the employer acted incorrectly. The employer cannot reassign a worker who refuses unsafe or dangerous work to another position. This is considered discrimination under the OHS Act, and the worker must be given a paid leave of absence until the issue is remedied.",
+            isCorrect: false,
+            isTrap: false
+          },
+          {
+            key: "C",
+            text: "No, the employer acted incorrectly. The OHS Act states that an employer can reassign an employee who refuses unsafe or dangerous work, but if so, then must adjust both salary and benefits to match those given to other employees in similar roles.",
+            isCorrect: false,
+            isTrap: false
+          },
+          {
+            key: "D",
+            text: "Yes, the employer acted correctly. Work reassignment is not discrimination under the OHS Act, but pay differentiation among employees is. Therefore, the employer had to adjust Austin’s pay while the issue was being remedied.",
+            isCorrect: false,
+            isTrap: false
+          }
+        ],
+
+        answer: "A",
+
+        explanation:
+          "The employer acted incorrectly. While a worker can be reassigned after refusing unsafe work, the Occupational Health and Safety Act requires that they continue to receive the same salary and benefits as before the refusal. The employer violated this by reducing Austin’s pay."
+      };
+    }
+
+    if (q.questionNumber === 381) {
+      return {
+        ...q,
+        question:
+          "Tim, a professional mechanical engineer, was assigned the role of inspecting heavy machinery at an old, somewhat run-down, chemical plant. Upon arrival, Tim realized that in order to complete this job he would have to risk his own safety, as much of the old machinery lacked the safety measures and automatic shut-offs that newer plants now require. Knowing his right to refuse unsafe work, Tim immediately notified his employer, Andrew, of his refusal. Andrew felt that Tim was over exaggerating the dangers associated with the job and quickly re-assigned the role to another employee. In order to reassign this role, however, Andrew knows that according to most association’s Occupational Health and Safety regulations, he must notify the next employee, in writing, of Tim’s refusal. Further, he must include the following:\n\na) Tim’s reason for refusal,\nb) The future worker’s right to refuse the work,\n\n...as well as which of the following options?",
+
+        options: [
+          {
+            key: "A",
+            text: "Recommendations or instructions to assist the future employee in avoiding the danger to his/her safety",
+            isCorrect: false,
+            isTrap: false
+          },
+          {
+            key: "B",
+            text: "The Occupational Health and Safety claim number, if Tim submitted a formal complaint",
+            isCorrect: false,
+            isTrap: false
+          },
+          {
+            key: "C",
+            text: "A list of the required personal protection equipment that the future employee must wear in order to avoid the dangers associated with the job",
+            isCorrect: false,
+            isTrap: false
+          },
+          {
+            key: "D",
+            text: "Why, in Andrew’s opinion, he believes the danger to safety no longer, or never did, exist",
+            isCorrect: true,
+            isTrap: false
+          }
+        ],
+
+        answer: "D",
+
+        explanation:
+          "Under Occupational Health and Safety regulations, when reassigning work after a refusal, the employer must provide written notice including: the previous worker’s refusal, the reason for refusal, the new worker’s right to refuse, and the employer’s explanation of why the work is now considered safe. Providing instructions or PPE does not replace the requirement to justify that the hazard no longer exists."
+      };
+    }
+
+    if (q.questionNumber === 502) {
+      return {
+        ...q,
+        question:
+          "There are two separate agreements involved when bonds are issued. The first is found within the contract between the obligee and the principal. The obligations owed by the principal to the obligee can be found here.\n\nThe other agreement is located within the bond and contains obligations of the bond. These agreements are known as:",
+
+        options: [
+          {
+            key: "A",
+            text: "Principle agreements and bond agreements.",
+            isCorrect: false,
+            isTrap: false
+          },
+          {
+            key: "B",
+            text: "Obligee agreements and bond agreements.",
+            isCorrect: false,
+            isTrap: false
+          },
+          {
+            key: "C",
+            text: "Contractual obligations and additional obligations.",
+            isCorrect: false,
+            isTrap: false
+          },
+          {
+            key: "D",
+            text: "Primary obligations and secondary obligations.",
+            isCorrect: true,
+            isTrap: false
+          }
+        ],
+
+        answer: "D",
+
+        explanation:
+          "Primary obligations are found in the initial contract between the obligee and the principal and describe what the principal must do. Secondary obligations are found in the bond itself and describe the surety’s obligations if the principal fails to perform."
+      };
+    }
+
     return q;
   });
 }
