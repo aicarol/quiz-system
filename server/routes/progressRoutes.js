@@ -6,11 +6,21 @@ const router = express.Router();
 
 router.get("/", requireAuth, async (req, res) => {
   try {
-    let progress = await UserProgress.findOne({ userId: req.user.id });
+    const { examType } = req.query;
+
+    if (!examType) {
+      return res.status(400).json({ error: "examType is required" });
+    }
+
+    let progress = await UserProgress.findOne({
+      userId: req.user.id,
+      examType
+    });
 
     if (!progress) {
       progress = await UserProgress.create({
         userId: req.user.id,
+        examType,
         lastQuestionNumber: null,
         remainingRandomPool: [],
         randomCycleStats: { total: 0, correct: 0 },
@@ -29,6 +39,7 @@ router.get("/", requireAuth, async (req, res) => {
 router.put("/", requireAuth, async (req, res) => {
   try {
     const {
+      examType,
       lastQuestionNumber,
       remainingRandomPool,
       randomCycleStats,
@@ -36,21 +47,35 @@ router.put("/", requireAuth, async (req, res) => {
       favoriteQuestionNumbers
     } = req.body;
 
-    const progress = await UserProgress.findOneAndUpdate(
-      { userId: req.user.id },
+    if (!examType) {
+      return res.status(400).json({ error: "examType is required" });
+    }
+
+    await UserProgress.updateOne(
       {
         userId: req.user.id,
-        lastQuestionNumber,
-        remainingRandomPool,
-        randomCycleStats,
-        wrongQuestionNumbers,
-        favoriteQuestionNumbers
+        examType
       },
       {
-        returnDocument: "after",
+        $set: {
+          userId: req.user.id,
+          examType,
+          lastQuestionNumber,
+          remainingRandomPool,
+          randomCycleStats,
+          wrongQuestionNumbers,
+          favoriteQuestionNumbers
+        }
+      },
+      {
         upsert: true
       }
     );
+
+    const progress = await UserProgress.findOne({
+      userId: req.user.id,
+      examType
+    });
 
     res.json(progress);
   } catch (error) {

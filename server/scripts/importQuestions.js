@@ -49,7 +49,6 @@ function isLikelyOptionParagraph(text) {
 
   const cleaned = cleanText(text);
   if (!cleaned) return false;
-
   if (cleaned.length < 3) return false;
 
   return true;
@@ -133,6 +132,7 @@ function finalizeQuestion(question) {
 
   const correctOption = question.options.find((opt) => opt.isCorrect);
   question.answer = correctOption ? correctOption.key : "";
+  question.answerText = correctOption ? correctOption.text : "";
 
   question.options = question.options.map((opt) => ({
     key: opt.key,
@@ -147,7 +147,7 @@ function finalizeQuestion(question) {
   return question;
 }
 
-function parseQuestions(paragraphs) {
+function parseQuestionsColorFormat(paragraphs) {
   const questions = [];
   let current = null;
   let state = "idle";
@@ -194,37 +194,38 @@ function parseQuestions(paragraphs) {
       const optionCandidate = isLikelyOptionParagraph(text);
       const { hasGreen, hasRed, hasBoldNonRed } = analyzeRuns(p.runs);
 
-      const looksLikeOption = optionCandidate &&
-           (
-           hasGreen ||
-           hasRed ||
-           hasBoldNonRed ||
-            current.options.length > 0 ||
-            (
-                current.question &&
-                current.options.length < 4 &&
-                text.length < 220
-            )
-            );
+      const looksLikeOption =
+        optionCandidate &&
+        (
+          hasGreen ||
+          hasRed ||
+          hasBoldNonRed ||
+          current.options.length > 0 ||
+          (
+            current.question &&
+            current.options.length < 4 &&
+            text.length < 220
+          )
+        );
 
       if (looksLikeOption && current.options.length < 4) {
-          const optionKey = String.fromCharCode(65 + current.options.length);
+        const optionKey = String.fromCharCode(65 + current.options.length);
 
-          current.options.push({
-            key: optionKey,
-            text,
-            isCorrect: hasGreen,
-            isTrap: hasRed,
-            _hasBoldNonRed: hasBoldNonRed
-          });
+        current.options.push({
+          key: optionKey,
+          text,
+          isCorrect: hasGreen,
+          isTrap: hasRed,
+          _hasBoldNonRed: hasBoldNonRed
+        });
 
-          if (hasGreen) {
-            current.sourceType = "green-correct";
-            } else if (hasRed && !current.sourceType) {
-            current.sourceType = "red-incorrect";
-          }
+        if (hasGreen) {
+          current.sourceType = "green-correct";
+        } else if (hasRed && !current.sourceType) {
+          current.sourceType = "red-incorrect";
+        }
 
-          continue;
+        continue;
       }
 
       current.question += (current.question ? " " : "") + text;
@@ -243,9 +244,192 @@ function parseQuestions(paragraphs) {
   return questions;
 }
 
+function parseQuestionsAnswerFormat(paragraphs) {
+  const questions = [];
+
+  const fullText = paragraphs
+    .map((p) => p.cleanedText)
+    .filter(Boolean)
+    .join("\n");
+
+  const blocks = fullText
+    .split(/(?=Question\s+\d+[\.\:]?\s*)/i)
+    .map((b) => b.trim())
+    .filter(Boolean);
+
+  for (const block of blocks) {
+    const numberMatch = block.match(/^Question\s+(\d+)/i);
+    if (!numberMatch) continue;
+
+    const questionNumber = parseInt(numberMatch[1], 10);
+    const title = `Question ${questionNumber}`;
+
+    const lines = block
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    let i = 0;
+
+    // Question text
+    let questionParts = [];
+    while (i < lines.length && !/^[A-D](?:[\.\),]|\s+)/i.test(lines[i])) {
+      if (/^Question\s+\d+[\.\:]?\s*/i.test(lines[i])) {
+        questionParts.push(lines[i].replace(/^Question\s+\d+[\.\:]?\s*/i, ""));
+      } else {
+        questionParts.push(lines[i]);
+      }
+      i++;
+    }
+
+    const questionText = cleanText(questionParts.join(" "));
+
+    // Options
+    const options = [];
+    let currentOption = null;
+
+    while (i < lines.length) {
+      const line = lines[i];
+
+      if (/^Answer\s*:?\s*$/i.test(line) || /^Answer\s*:/i.test(line)) {
+        break;
+      }
+
+      // Accept:
+      // A. xxx
+      // A) xxx
+      // A, xxx
+      // A xxx
+      const optionMatch = line.match(/^([A-D])(?:[\.\),]\s*|\s+)(.*)$/i);
+
+      if (optionMatch) {
+        if (currentOption) {
+          options.push(currentOption);
+        }
+
+        currentOption = {
+          key: optionMatch[1].toUpperCase(),
+          text: cleanText(optionMatch[2]),
+          isCorrect: false,
+          isTrap: false
+        };
+      } else if (currentOption) {
+        currentOption.text = cleanText(`${currentOption.text} ${line}`);
+      }
+
+      i++;
+    }
+
+    if (currentOption) {
+      options.push(currentOption);
+    }
+
+    // Answer
+    let answerLines = [];
+
+    if (i < lines.length) {
+      if (/^Answer\s*:?\s*$/i.test(lines[i])) {
+        i++;
+        while (i < lines.length && !/^Question\s+\d+/i.test(lines[i])) {
+          answerLines.push(lines[i]);
+          i++;
+        }
+      } else if (/^Answer\s*:/i.test(lines[i])) {
+        answerLines.push(lines[i].replace(/^Answer\s*:\s*/i, ""));
+        i++;
+        while (i < lines.length && !/^Question\s+\d+/i.test(lines[i])) {
+          answerLines.push(lines[i]);
+          i++;
+        }
+      }
+    }
+
+    const rawAnswer = cleanText(answerLines.join(" "));
+
+    let answerKey = "";
+    let answerText = "";
+
+    if (rawAnswer) {
+      const answerMatch = rawAnswer.match(/^([A-D])(?:[\.\),]\s*|\s+)(.*)$/i);
+      if (answerMatch) {
+        answerKey = answerMatch[1].toUpperCase();
+        answerText = cleanText(answerMatch[2]);
+      } else {
+        answerText = rawAnswer;
+      }
+    }
+
+    const finalOptions = options.map((opt) => {
+      let isCorrect = false;
+
+      if (answerKey && opt.key === answerKey) {
+        isCorrect = true;
+      } else if (
+        answerText &&
+        cleanText(opt.text).toLowerCase() === answerText.toLowerCase()
+      ) {
+        isCorrect = true;
+        answerKey = opt.key;
+      }
+
+      return {
+        ...opt,
+        isCorrect
+      };
+    });
+
+    const correctOption = finalOptions.find((opt) => opt.isCorrect);
+
+    if (questionText && finalOptions.length === 4) {
+      questions.push({
+        questionNumber,
+        title,
+        question: questionText,
+        options: finalOptions,
+        answer: answerKey,
+        answerText: correctOption ? correctOption.text : "",
+        explanation: "",
+        sourceType: "answer-line",
+        topic: ""
+      });
+    } else {
+      console.log(`Skipped Question ${questionNumber}`);
+      console.log("Options found:", finalOptions.length);
+      console.log("Raw block:\n", block);
+      console.log("==================================================");
+    }
+  }
+
+  return questions;
+}
+
+function getExamType(inputFile) {
+  const lower = inputFile.toLowerCase();
+
+  if (lower.includes("peng") || lower.includes("ppe")) {
+    return "PENG";
+  }
+
+  if (lower.includes("citizen") || lower.includes("citizenship")) {
+    return "CITIZEN";
+  }
+
+  throw new Error(`Cannot determine examType from file name: ${inputFile}`);
+}
+
+function getFormatType(inputFile) {
+  const lower = inputFile.toLowerCase();
+
+  if (lower.includes("citizen") || lower.includes("citizenship")) {
+    return "answer-line";
+  }
+
+  return "color";
+}
+
 function applyManualFixes(questions) {
   return questions.map((q) => {
-    if (q.questionNumber === 412) {
+    if (q.examType === "PENG" && q.questionNumber === 412) {
       return {
         ...q,
         question:
@@ -280,7 +464,7 @@ function applyManualFixes(questions) {
       };
     }
 
-    if (q.questionNumber === 274) {
+    if (q.examType === "PENG" && q.questionNumber === 274) {
       return {
         ...q,
         question:
@@ -295,7 +479,7 @@ function applyManualFixes(questions) {
       };
     }
 
-    if (q.questionNumber === 45) {
+    if (q.examType === "PENG" && q.questionNumber === 45) {
       return {
         ...q,
         question:
@@ -310,7 +494,7 @@ function applyManualFixes(questions) {
       };
     }
 
-    if (q.questionNumber === 84) {
+    if (q.examType === "PENG" && q.questionNumber === 84) {
       return {
         ...q,
         question:
@@ -327,7 +511,7 @@ function applyManualFixes(questions) {
       };
     }
 
-    if (q.questionNumber === 246) {
+    if (q.examType === "PENG" && q.questionNumber === 246) {
       return {
         ...q,
         question:
@@ -344,12 +528,11 @@ function applyManualFixes(questions) {
       };
     }
 
-    if (q.questionNumber === 334) {
+    if (q.examType === "PENG" && q.questionNumber === 334) {
       return {
         ...q,
         question:
           "Gigi, M.I.T, is studying for her upcoming PPE exam. She has read a lot about the ISO (International Organization for Standardization), and how international and national standards are created. In order to ensure she remembers, she writes down in her notes the full process that the ISO goes through when creating new standards. She writes:\n\n“A new standard is proposed, and the ISO brings together a technical team. The new standard must pass three drafts, and at each, the technical team is able to add opinions and make necessary changes. At the final draft stage, the member countries of the ISO vote on the standard. If the standard receives ⅔ (66.67%) passing votes from the member countries, it becomes an ISO standard. The member countries must then adopt and publish the new standard as a national standard.”\n\nWhich part of Gigi’s note is INCORRECT?",
-        
         options: [
           {
             key: "A",
@@ -376,20 +559,17 @@ function applyManualFixes(questions) {
             isTrap: false
           }
         ],
-
         answer: "B",
-
         explanation:
           "The incorrect part is that member countries 'must' adopt the ISO standard. In reality, adoption is optional. Once a standard becomes official, ISO publishes it, but each member country decides whether to adopt it as a national standard."
       };
     }
 
-    if (q.questionNumber === 406) {
+    if (q.examType === "PENG" && q.questionNumber === 406) {
       return {
         ...q,
         question:
           "Austin, P.Geo., was assigned by his employer to a project that involved investigating underground mineral deposits for a mining company in Alberta. Upon arrival at the site, the project manager directed Austin to enter the mine through small underground tunnels. He inspected the entranceway and deemed the tunnels to be unstable. Austin immediately reported the issue to his employer and exercised his right to refuse unsafe or dangerous work under the Occupational Health and Safety Act (OHS), until the tunnels were structurally reinforced. His employer respected his decision and did the following to remedy the situation:\n\n1) Reassigned Austin to work as the firm’s secretary while the situation was being remedied.\n2) Adjusted Austin’s salary to match that of the other administrative employees while the situation was being remedied.\n3) Allowed Austin to keep the same health benefits for himself and his family that he had before the refusal.\n\nAccording to the OHS, were the employer’s actions correct? Why or why not?",
-        
         options: [
           {
             key: "A",
@@ -416,20 +596,17 @@ function applyManualFixes(questions) {
             isTrap: false
           }
         ],
-
         answer: "A",
-
         explanation:
           "The employer acted incorrectly. While a worker can be reassigned after refusing unsafe work, the Occupational Health and Safety Act requires that they continue to receive the same salary and benefits as before the refusal. The employer violated this by reducing Austin’s pay."
       };
     }
 
-    if (q.questionNumber === 381) {
+    if (q.examType === "PENG" && q.questionNumber === 381) {
       return {
         ...q,
         question:
           "Tim, a professional mechanical engineer, was assigned the role of inspecting heavy machinery at an old, somewhat run-down, chemical plant. Upon arrival, Tim realized that in order to complete this job he would have to risk his own safety, as much of the old machinery lacked the safety measures and automatic shut-offs that newer plants now require. Knowing his right to refuse unsafe work, Tim immediately notified his employer, Andrew, of his refusal. Andrew felt that Tim was over exaggerating the dangers associated with the job and quickly re-assigned the role to another employee. In order to reassign this role, however, Andrew knows that according to most association’s Occupational Health and Safety regulations, he must notify the next employee, in writing, of Tim’s refusal. Further, he must include the following:\n\na) Tim’s reason for refusal,\nb) The future worker’s right to refuse the work,\n\n...as well as which of the following options?",
-
         options: [
           {
             key: "A",
@@ -456,20 +633,17 @@ function applyManualFixes(questions) {
             isTrap: false
           }
         ],
-
         answer: "D",
-
         explanation:
           "Under Occupational Health and Safety regulations, when reassigning work after a refusal, the employer must provide written notice including: the previous worker’s refusal, the reason for refusal, the new worker’s right to refuse, and the employer’s explanation of why the work is now considered safe. Providing instructions or PPE does not replace the requirement to justify that the hazard no longer exists."
       };
     }
 
-    if (q.questionNumber === 502) {
+    if (q.examType === "PENG" && q.questionNumber === 502) {
       return {
         ...q,
         question:
           "There are two separate agreements involved when bonds are issued. The first is found within the contract between the obligee and the principal. The obligations owed by the principal to the obligee can be found here.\n\nThe other agreement is located within the bond and contains obligations of the bond. These agreements are known as:",
-
         options: [
           {
             key: "A",
@@ -496,9 +670,7 @@ function applyManualFixes(questions) {
             isTrap: false
           }
         ],
-
         answer: "D",
-
         explanation:
           "Primary obligations are found in the initial contract between the obligee and the principal and describe what the principal must do. Secondary obligations are found in the bond itself and describe the surety’s obligations if the principal fails to perform."
       };
@@ -514,18 +686,48 @@ async function main() {
     console.log("MongoDB connected for import");
 
     const inputFile = process.argv[2] || "questions.docx";
+    const examType = getExamType(inputFile);
+    const formatType = getFormatType(inputFile);
     const filePath = path.join(process.cwd(), "scripts", inputFile);
+    const ext = path.extname(inputFile).toLowerCase();
 
-    const paragraphs = await readDocx(filePath);
+    let questions = [];
 
-    let questions = parseQuestions(paragraphs).map((q) => ({
-        ...q,
-        sourceFile: inputFile
+    if (ext === ".txt") {
+      const rawText = fs.readFileSync(filePath, "utf-8");
+
+      const paragraphs = rawText.split("\n").map((line) => ({
+        cleanedText: line.trim()
+      }));
+
+      if (formatType === "answer-line") {
+        questions = parseQuestionsAnswerFormat(paragraphs);
+      } else {
+        throw new Error("TXT files currently only support answer-line format");
+      }
+    } else if (ext === ".docx") {
+      const paragraphs = await readDocx(filePath);
+
+      if (formatType === "answer-line") {
+        questions = parseQuestionsAnswerFormat(paragraphs);
+      } else {
+        questions = parseQuestionsColorFormat(paragraphs);
+      }
+    } else {
+      throw new Error(`Unsupported file type: ${ext}`);
+    }
+
+    questions = questions.map((q) => ({
+      ...q,
+      examType,
+      sourceFile: inputFile
     }));
 
     questions = applyManualFixes(questions);
 
     console.log(`Parsed ${questions.length} questions from ${inputFile}`);
+    console.log(`Exam type: ${examType}`);
+    console.log(`Format type: ${formatType}`);
 
     if (questions.length > 0) {
       console.log("Sample parsed question:");
@@ -534,7 +736,7 @@ async function main() {
 
     for (const q of questions) {
       await Question.updateOne(
-        { questionNumber: q.questionNumber },
+        { examType: q.examType, questionNumber: q.questionNumber },
         { $set: q },
         { upsert: true }
       );

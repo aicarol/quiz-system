@@ -7,6 +7,7 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import FavoritesPage from "./pages/FavoritesPage";
 import LoginRequiredPage from "./components/LoginRequiredPage";
+import SelectExamPage from "./pages/SelectExamPage";
 import { shuffleArray } from "./utils/helpers";
 import { api } from "./api/api";
 
@@ -47,6 +48,10 @@ function App() {
 
   const [favoriteQuestionNumbers, setFavoriteQuestionNumbers] = useState([]);
 
+  const [examType, setExamType] = useState(
+    localStorage.getItem("examType") || ""
+  );
+
   useEffect(() => {
     async function fetchMe() {
       if (!token) {
@@ -76,6 +81,12 @@ function App() {
   }, [token]);
 
   useEffect(() => {
+    if (examType) {
+      localStorage.setItem("examType", examType);
+    }
+  }, [examType]);
+
+  useEffect(() => {
     if (!user) {
       setQuestions([]);
       setProgressLoaded(false);
@@ -89,7 +100,9 @@ function App() {
         setError("");
         setProgressLoaded(false);
 
-        const response = await api.get("/api/questions");
+        const response = await api.get(
+          `/api/questions?examType=${examType}`
+        );
 
         const fetchedQuestions = Array.isArray(response.data)
           ? response.data
@@ -107,13 +120,13 @@ function App() {
     }
 
     fetchQuestions();
-  }, [user]);
+  }, [user, examType]);
 
   useEffect(() => {
     if (!user || !questions.length) return;
 
     loadProgress();
-  }, [user, questions]);
+  }, [user, questions, examType]);
 
   useEffect(() => {
     if (!user || !questions.length || !progressLoaded) return;
@@ -126,6 +139,7 @@ function App() {
 
     saveTimeoutRef.current = setTimeout(() => {
       saveProgress({
+        examType,
         lastQuestionNumber: currentQuestion?.questionNumber ?? null,
         remainingRandomPool: remainingRandomQuestionNumbers,
         randomCycleStats,
@@ -142,7 +156,8 @@ function App() {
     randomCycleStats,
     wrongQuestionNumbers,
     favoriteQuestionNumbers,
-    progressLoaded
+    progressLoaded,
+    examType
   ]);
 
   useEffect(() => {
@@ -183,6 +198,12 @@ function App() {
     };
   }, [questions, currentIndex, shuffledOptionsMap]);
 
+  useEffect(() => {
+    setCurrentIndex(0);
+    setSelectedKey("");
+    setShowExplanation(false);
+  }, [examType]);
+
   const wrongQuestions = useMemo(() => {
     const wrongSet = new Set(wrongQuestionNumbers);
     return questions.filter((q) => wrongSet.has(q.questionNumber));
@@ -197,11 +218,12 @@ function App() {
     if (!token) return;
 
     try {
-      const response = await api.get("/api/progress", {
-        headers: {
-          Authorization: `Bearer ${token}`
+      const response = await api.get(
+        `/api/progress?examType=${examType}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
         }
-      });
+      );
 
       const progress = response.data;
 
@@ -245,6 +267,7 @@ function App() {
   }
 
   async function saveProgress({
+    examType,
     lastQuestionNumber,
     remainingRandomPool,
     randomCycleStats,
@@ -257,6 +280,7 @@ function App() {
       await api.put(
         "/api/progress",
         {
+          examType,
           lastQuestionNumber,
           remainingRandomPool,
           randomCycleStats,
@@ -264,9 +288,7 @@ function App() {
           favoriteQuestionNumbers
         },
         {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+          headers: { Authorization: `Bearer ${token}` }
         }
       );
     } catch (err) {
@@ -407,8 +429,11 @@ function App() {
 
   function handleLogout() {
     localStorage.removeItem("token");
+    localStorage.removeItem("examType");
+
     setUser(null);
     setToken("");
+    setExamType("");
   }
 
   function getOptionStyle(option) {
@@ -476,10 +501,17 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
 
         <Route
+          path="/select-exam"
+          element={<SelectExamPage setExamType={setExamType} />}
+        />
+
+        <Route
           path="/"
           element={
             user ? (
-              loading ? (
+              !examType ? (
+                <SelectExamPage setExamType={setExamType} />
+              ) : loading ? (
                 <div style={styles.page}>Loading questions...</div>
               ) : error ? (
                 <div style={styles.page}>{error}</div>
@@ -503,9 +535,11 @@ function App() {
                   randomCycleStats={randomCycleStats}
                   sessionStats={sessionStats}
                   wrongCount={wrongQuestionNumbers.length}
+                  favoriteCount={favoriteQuestionNumbers.length}
                   handleLogout={handleLogout}
                   isFavorite={favoriteQuestionNumbers.includes(currentQuestion?.questionNumber)}
                   toggleFavoriteQuestion={toggleFavoriteQuestion}
+                  examType={examType}
                 />
               )
             ) : (
@@ -518,7 +552,9 @@ function App() {
           path="/wrong-book"
           element={
             user ? (
-              loading ? (
+              !examType ? (
+                <SelectExamPage setExamType={setExamType} />
+              ) : loading ? (
                 <div style={styles.page}>Loading questions...</div>
               ) : error ? (
                 <div style={styles.page}>{error}</div>
@@ -527,6 +563,7 @@ function App() {
                   wrongQuestions={wrongQuestions}
                   removeWrongQuestion={removeWrongQuestion}
                   clearWrongBook={clearWrongBook}
+                  examType={examType}
                 />
               )
             ) : (
@@ -539,7 +576,9 @@ function App() {
           path="/favorites"
           element={
             user ? (
-              loading ? (
+            !examType ? (
+              <SelectExamPage setExamType={setExamType} />
+            ) : loading ? (
                 <div style={styles.page}>Loading questions...</div>
               ) : error ? (
                 <div style={styles.page}>{error}</div>
@@ -548,6 +587,7 @@ function App() {
                   favoriteQuestions={favoriteQuestions}
                   removeFavoriteQuestion={removeFavoriteQuestion}
                   clearFavorites={clearFavorites}
+                  examType={examType}
                 />
               )
             ) : (

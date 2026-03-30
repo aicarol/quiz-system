@@ -6,7 +6,8 @@ import { shuffleArray } from "../utils/helpers";
 export default function FavoritesPage({
   favoriteQuestions,
   removeFavoriteQuestion,
-  clearFavorites
+  clearFavorites,
+  examType
 }) {
   const [favoriteIndex, setFavoriteIndex] = useState(0);
   const [selectedKey, setSelectedKey] = useState("");
@@ -114,9 +115,15 @@ export default function FavoritesPage({
       <div style={styles.page}>
         <div style={styles.card}>
           <div style={styles.topBar}>
-            <div style={styles.topRow}>
-              <span>Favorites</span>
-              <span>0 questions</span>
+            <div>
+              <div style={styles.topRow}>
+                <span>Favorites</span>
+                <span>0 questions</span>
+              </div>
+
+              <div style={{ marginTop: "12px", color: "#666", fontSize: "14px" }}>
+                Current Exam: {examType}
+              </div>
             </div>
 
             <Link to="/" style={styles.linkButton}>
@@ -161,6 +168,10 @@ export default function FavoritesPage({
               Clear Favorites
             </button>
           </div>
+        </div>
+
+        <div style={{ marginBottom: "12px", color: "#666", fontSize: "14px" }}>
+          Current Exam: {examType}
         </div>
 
         <h2 style={styles.question}>{currentFavoriteQuestion.question}</h2>

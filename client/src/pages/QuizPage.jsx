@@ -21,9 +21,11 @@ export default function QuizPage({
   randomCycleStats,
   sessionStats,
   wrongCount,
+  favoriteCount,
   handleLogout,
   isFavorite,
-  toggleFavoriteQuestion
+  toggleFavoriteQuestion,
+  examType
 }) {
   if (!currentQuestion) {
     return <div style={styles.page}>No questions found.</div>;
@@ -33,26 +35,38 @@ export default function QuizPage({
     <div style={styles.page}>
       <div style={styles.card}>
         <div style={styles.topBar}>
+          <div>
             <div style={styles.topRow}>
                 <span>Question {currentQuestion.questionNumber}</span>
                 <span>
                 {currentIndex + 1} / {totalQuestions}
                 </span>
             </div>
-
-            <div style={{ display: "flex", gap: "10px" }}>
-                <Link to="/wrong-book" style={styles.linkButton}>
-                Wrong Book ({wrongCount})
-                </Link>
-
-                <Link to="/favorites" style={styles.linkButton}>
-                Favorites
-                </Link>
-
-                <button style={styles.secondaryButton} onClick={handleLogout}>
-                Logout
-                </button>
+            <div style={{ marginTop: "8px", color: "#666", fontSize: "14px" }}>
+              Current Exam: {examType}
             </div>
+          </div>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <Link to="/wrong-book" style={styles.linkButton}>
+              Wrong Book ({wrongCount})
+              </Link>
+
+              <Link to="/favorites" style={styles.linkButton}>
+              Favorites ({favoriteCount})
+              </Link>
+
+              <button style={styles.secondaryButton} onClick={handleLogout}>
+              Logout
+              </button>
+
+              <button style={styles.secondaryButton} 
+                onClick={() => {
+                  localStorage.removeItem("examType");
+                  window.location.reload(); 
+                }}>
+              Switch Exam
+              </button>
+          </div>
         </div>
 
         <div style={styles.statsGrid}>
@@ -107,7 +121,8 @@ export default function QuizPage({
         {showExplanation && (
           <div style={styles.explanationBox}>
             <p>
-              <strong>Correct Answer:</strong> {currentQuestion.answer}
+              <strong>Correct Answer:</strong>{" "}
+              {currentQuestion.answerText || currentQuestion.answer}
             </p>
             <p>
               <strong>Explanation:</strong> {currentQuestion.explanation}

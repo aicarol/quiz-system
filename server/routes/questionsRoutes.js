@@ -5,7 +5,16 @@ const router = express.Router();
 
 router.get("/", async (req, res) => {
   try {
-    const questions = await Question.find().sort({ questionNumber: 1 });
+    const { examType } = req.query;
+
+    if (!examType) {
+      return res.status(400).json({ error: "examType is required" });
+    }
+
+    const questions = await Question.find({ examType }).sort({
+      questionNumber: 1
+    });
+
     res.json(questions);
   } catch (error) {
     console.error("Failed to fetch questions:", error);
@@ -15,14 +24,20 @@ router.get("/", async (req, res) => {
 
 router.get("/random", async (req, res) => {
   try {
-    const count = await Question.countDocuments();
+    const { examType } = req.query;
+
+    if (!examType) {
+      return res.status(400).json({ error: "examType is required" });
+    }
+
+    const count = await Question.countDocuments({ examType });
 
     if (count === 0) {
       return res.status(404).json({ error: "No questions found" });
     }
 
     const randomIndex = Math.floor(Math.random() * count);
-    const question = await Question.findOne().skip(randomIndex);
+    const question = await Question.findOne({ examType }).skip(randomIndex);
 
     res.json(question);
   } catch (error) {
@@ -33,9 +48,16 @@ router.get("/random", async (req, res) => {
 
 router.get("/count", async (req, res) => {
   try {
-    const count = await Question.countDocuments();
+    const { examType } = req.query;
+
+    if (!examType) {
+      return res.status(400).json({ error: "examType is required" });
+    }
+
+    const count = await Question.countDocuments({ examType });
     res.json({ count });
   } catch (error) {
+    console.error("Failed to count questions:", error);
     res.status(500).json({ error: "Failed to count questions" });
   }
 });
